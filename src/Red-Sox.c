@@ -16,7 +16,7 @@ TextLayer *text_battery_layer;
 Layer       *LineLayer;
 Layer       *BTLayer1;
 
-GFont        fontHelvNewLight13;
+GFont        fontHelvNewLight20;
 GFont		     fontRobotoCondensed25;
 GFont        fontSystemGothicBold28;
 GFont        fontRobotoBoldSubset49;
@@ -307,7 +307,7 @@ void handle_deinit(void) {
   gbitmap_destroy(image);
   bitmap_layer_destroy(image_layer);
   
-  fonts_unload_custom_font(fontHelvNewLight13);
+  fonts_unload_custom_font(fontHelvNewLight20);
   fonts_unload_custom_font(fontRobotoCondensed25);
   fonts_unload_custom_font(fontRobotoBoldSubset49); 
   
@@ -375,7 +375,7 @@ void handle_init(void) {
 
   Layer *window_layer = window_get_root_layer(window);
   
-  fontHelvNewLight13     = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HELV_NEW_LIGHT_13));
+  fontHelvNewLight20     = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_HELV_NEW_LIGHT_20));
   fontRobotoCondensed25  = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_25));
   fontSystemGothicBold28 = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   fontRobotoBoldSubset49 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49));
@@ -451,10 +451,10 @@ void handle_init(void) {
     bluetooth_connection_service_subscribe(&handle_bluetooth);
          
     //Battery area
-    text_battery_layer = text_layer_create(GRect(80,5,45,20));
+    text_battery_layer = text_layer_create(GRect(85,2,55,28));
     text_layer_set_text_color(text_battery_layer,TEXTCOLOR);
     text_layer_set_background_color(text_battery_layer, BGCOLOR);
-    text_layer_set_font(text_battery_layer,   fontHelvNewLight13);
+    text_layer_set_font(text_battery_layer,   fontHelvNewLight20);
     text_layer_set_text_alignment(text_battery_layer, GTextAlignmentRight);
 
     layer_add_child(window_layer, text_layer_get_layer(text_battery_layer));
