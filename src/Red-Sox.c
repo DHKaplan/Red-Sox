@@ -13,7 +13,8 @@ TextLayer *text_year_layer;
 TextLayer *text_time_layer;
 TextLayer *text_battery_layer;
 
-Layer       *LineLayer;
+Layer       *RedLineLayer;
+Layer       *BatteryLineLayer;
 Layer       *BTLayer1;
 
 GFont        fontHelvNewLight20;
@@ -45,18 +46,50 @@ static int BTVibesDone = 0;
 GColor TextColorHold;
 GColor BGColorHold;
 
-void line_layer_update_callback(Layer *LineLayer, GContext* ctx) { 
+void red_line_layer_update_callback(Layer *RedLineLayer, GContext* ctx) { 
          
-    #if PBL_COLOR
+     #if PBL_COLOR
          graphics_context_set_fill_color(ctx, GColorRed);
      #else 
          //B&W
          graphics_context_set_fill_color(ctx, TextColorHold);
      #endif
-      
-     graphics_fill_rect(ctx, layer_get_bounds(LineLayer), 0, GCornerNone);
+       
+     graphics_fill_rect(ctx, layer_get_bounds(RedLineLayer), 0, GCornerNone);
 }
 
+void battery_line_layer_update_callback(Layer *BatteryLineLayer, GContext* ctx) { 
+     graphics_context_set_fill_color(ctx, TextColorHold);
+     graphics_fill_rect(ctx, layer_get_bounds(BatteryLineLayer), 3, GCornersAll);
+
+     if (batterycharging == 1) {
+       #ifdef PBL_COLOR
+          graphics_context_set_fill_color(ctx, GColorBlue);
+       #else
+          graphics_context_set_fill_color(ctx, GColorBlack);
+       #endif
+
+       graphics_fill_rect(ctx, GRect(2, 1, 100, 4), 3, GCornersAll);
+
+     } else if (batterychargepct > 20) {
+       #ifdef PBL_COLOR
+          graphics_context_set_fill_color(ctx, GColorGreen);
+       #else
+          graphics_context_set_fill_color(ctx, GColorBlack);
+       #endif
+         
+       graphics_fill_rect(ctx, GRect(2, 1, batterychargepct, 4), 3, GCornersAll);
+       
+     } else {
+      #ifdef PBL_COLOR
+          graphics_context_set_fill_color(ctx, GColorRed);
+       #else
+          graphics_context_set_fill_color(ctx, GColorBlack);
+       #endif
+         
+       graphics_fill_rect(ctx, GRect(2, 1, batterychargepct, 4),3, GCornersAll);
+     }
+}
 void handle_bluetooth(bool connected) {
     if (connected) {
          BTConnected = 1;     // Connected
@@ -231,7 +264,7 @@ void handle_battery(BatteryChargeState charge_state) {
   }
    text_layer_set_text(text_battery_layer, BatteryPctTxt);
 
-  //layer_mark_dirty(line_layer);
+  layer_mark_dirty(BatteryLineLayer);
 }
 
 void handle_appfocus(bool in_focus){
@@ -247,43 +280,39 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   strftime(seconds_text, sizeof(seconds_text), "%S", tick_time);
       
  if (clock_is_24h_style()) {
-       strcpy(time_format,"%R");
-     } else {
-       strcpy(time_format,"%I:%M");
-     }
+    strcpy(time_format,"%R");
+    } else {
+    strcpy(time_format,"%I:%M");
+    }
   
 // Set Time of Day  
   strftime(time_text, sizeof(time_text), time_format, tick_time); 
+  
+  // Kludge to handle lack of non-padded hour format string
+  if (!clock_is_24h_style() && (time_text[0] == '0')) {
+      memmove(time_text, &time_text[1], sizeof(time_text) - 1);
+  } 
 
   if((strcmp(seconds_text,"00") == 0) || (FirstTime == 0)) {
-      FirstTime = 1;
+     //Set Day and Date
+     strftime(dayname_text, sizeof(dayname_text), "%a",    tick_time);
+     strftime(mmdd_text,    sizeof(mmdd_text),   date_format, tick_time); 
+     strftime(year_text,    sizeof(year_text),    "%Y",    tick_time); 
 
-  // Kludge to handle lack of non-padded hour format string
-  // for twelve hour clock.
-  if (!clock_is_24h_style() && (time_text[0] == '0')) {
-    memmove(time_text, &time_text[1], sizeof(time_text) - 1);
-  }
- 
-//Set Day and Date
-  strftime(dayname_text, sizeof(dayname_text), "%a",    tick_time);
-  strftime(mmdd_text,    sizeof(mmdd_text),   date_format, tick_time); 
-  strftime(year_text,    sizeof(year_text),    "%Y",    tick_time); 
-   
-//Initialize
-    text_layer_set_text(text_dayname_layer, dayname_text);
-    text_layer_set_text(text_mmdd_layer, mmdd_text);
-    text_layer_set_text(text_year_layer, year_text);    
-    
+     text_layer_set_text(text_dayname_layer, dayname_text);
+     text_layer_set_text(text_mmdd_layer, mmdd_text);
+     text_layer_set_text(text_year_layer, year_text);      
+  }  
 
 if (units_changed & DAY_UNIT) {
    // Only update the day name & date when it's changed. 
     text_layer_set_text(text_dayname_layer, dayname_text);
     text_layer_set_text(text_mmdd_layer, mmdd_text);
   }
-}
+
  // Always update time of day
   text_layer_set_text(text_time_layer, time_text);
-  
+  FirstTime = 1;
 }
 
 void handle_deinit(void) {
@@ -301,7 +330,8 @@ void handle_deinit(void) {
   text_layer_destroy(text_dayname_layer);
   text_layer_destroy(text_battery_layer);
 
-  layer_destroy(LineLayer);
+  layer_destroy(RedLineLayer);
+  layer_destroy(BatteryLineLayer);
   layer_destroy(BTLayer1);
    
   gbitmap_destroy(image);
@@ -393,7 +423,7 @@ void handle_init(void) {
   image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_RED_SOX_LOGO);
   
   // Dayname
-  text_dayname_layer = text_layer_create(GRect(56, 25, 88, 40));
+  text_dayname_layer = text_layer_create(GRect(56, 29, 88, 40));
   text_layer_set_text_color(text_dayname_layer, TEXTCOLOR);
   text_layer_set_background_color(text_dayname_layer, BGCOLOR);
   text_layer_set_font(text_dayname_layer, fontSystemGothicBold28);
@@ -422,6 +452,18 @@ void handle_init(void) {
   bitmap_layer_set_alignment(image_layer, GAlignCenter);
   layer_add_child(window_layer, bitmap_layer_get_layer(image_layer));
   
+ //Persistent Value Date Format:
+  if (persist_exists(DATE_STYLE)) {
+       persist_read_string(DATE_STYLE, date_type, sizeof(date_type));
+  }  else {
+       strcpy(date_type, "us");
+  }
+
+  if (strcmp(date_type, "us") == 0) {
+      strcpy(date_format, "%b %d");
+  } else {
+      strcpy(date_format, "%d %b");
+  }
   
   // Time of Day is here
   text_time_layer = text_layer_create(GRect(1, 115, 144, 168-115));
@@ -431,12 +473,17 @@ void handle_init(void) {
   text_layer_set_text_alignment(text_time_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(text_time_layer));
   
-  // Line
-  GRect line_frame = GRect(1, 119, 168, 2);
-  LineLayer = layer_create(line_frame);
-  layer_set_update_proc(LineLayer, line_layer_update_callback);
-  layer_add_child(window_layer, LineLayer);
-
+  // Red Line
+  GRect line_frame = GRect(10, 29, 124, 2);
+  RedLineLayer = layer_create(line_frame);
+  layer_set_update_proc(RedLineLayer, red_line_layer_update_callback);
+  layer_add_child(window_layer, RedLineLayer);
+  
+  // Battery Line
+  GRect battery_line_frame = GRect(22, 117, 104, 6);
+  BatteryLineLayer = layer_create(battery_line_frame);
+  layer_set_update_proc(BatteryLineLayer, battery_line_layer_update_callback);
+  layer_add_child(window_layer, BatteryLineLayer);
   
   tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
 
@@ -451,7 +498,7 @@ void handle_init(void) {
     bluetooth_connection_service_subscribe(&handle_bluetooth);
          
     //Battery area
-    text_battery_layer = text_layer_create(GRect(85,2,55,28));
+    text_battery_layer = text_layer_create(GRect(85,2,55,27));
     text_layer_set_text_color(text_battery_layer,TEXTCOLOR);
     text_layer_set_background_color(text_battery_layer, BGCOLOR);
     text_layer_set_font(text_battery_layer,   fontHelvNewLight20);
