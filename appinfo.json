@@ -9,7 +9,7 @@
     "resources": {
         "media": [
             {
-                "file": "images/Red Sox Screen Shot BW menu.png",
+                "file": "images/menu_icon_Red-Sox-BW.png",
                 "menuIcon": true,
                 "name": "IMAGE_MENU_ICON",
                 "type": "png"
@@ -54,7 +54,7 @@
         "basalt"
     ],
     "uuid": "070d9311-45d6-4489-bae4-be9d29832930",
-    "versionLabel": "4.11",
+    "versionLabel": "4.12",
     "watchapp": {
         "watchface": true
     }
