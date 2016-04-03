@@ -584,6 +584,13 @@ void handle_init(void) {
     handle_bluetooth(bluetooth_connection_service_peek());
     
     app_focus_service_subscribe(&handle_appfocus);
+  
+  // Ensures time is displayed immediately (will break if NULL tick event accessed).
+  // (This is why it's a good idea to have a separate routine to do the update itself.)
+  time_t now = time(NULL);
+  struct tm *current_time = localtime(&now);
+  handle_tick(current_time, SECOND_UNIT);
+
 }
 
 

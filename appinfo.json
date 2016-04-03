@@ -4,6 +4,7 @@
         "configurable"
     ],
     "companyName": "WA1OUI",
+    "enableMultiJS": false,
     "longName": "Red Sox",
     "projectType": "native",
     "resources": {
@@ -43,13 +44,13 @@
             {
                 "file": "images/bos.png",
                 "name": "IMAGE_RED_SOX_LOGO",
-                "type": "png"
+                "type": "bitmap"
             },
             {
                 "file": "images/menu_icon_Red-Sox-BW.png",
                 "menuIcon": true,
                 "name": "IMAGE_MENU_ICON",
-                "type": "png"
+                "type": "bitmap"
             }
         ]
     },
@@ -61,7 +62,7 @@
         "chalk"
     ],
     "uuid": "070d9311-45d6-4489-bae4-be9d29832930",
-    "versionLabel": "5.00",
+    "versionLabel": "5.1",
     "watchapp": {
         "watchface": true
     }
