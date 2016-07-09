@@ -1,8 +1,5 @@
 #include "pebble.h"
 
-#define DATE_STYLE 0
-#define BT_VIBRATE 1  
-
 Window *window;
 
 static GBitmap     *image;
@@ -39,6 +36,10 @@ int FirstTime = 0;
 static int  batterychargepct;
 static int  BatteryVibesDone = 0;
 static int  batterycharging=0;
+
+static char PersistDateFormat[]   = "0";    // 0 = US, 1 = Intl
+static int  PersistBTLoss         =  0;     // 0 = No Vib, 1 = Vib
+static int  PersistLow_Batt       =  0;     // 0 = No Vib, 1 = Vib
 
 GPoint     Linepoint;
 
@@ -93,6 +94,28 @@ void battery_line_layer_update_callback(Layer *BatteryLineLayer, GContext* ctx) 
          
        graphics_fill_rect(ctx, GRect(2, 1, batterychargepct, 4),3, GCornersAll);
      }
+  
+      //Battery % Markers
+      #ifdef PBL_COLOR
+        graphics_context_set_fill_color(ctx, GColorBlack);
+      #else
+        if(batterycharging == 1) {
+            graphics_context_set_fill_color(ctx, GColorBlack);
+        } else {
+            graphics_context_set_fill_color(ctx, GColorWhite);
+        }
+      #endif
+  
+      graphics_fill_rect(ctx, GRect(89, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(79, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(69, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(59, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(49, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(39, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(29, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(19, 1, 3, 4), 3, GCornerNone);
+      graphics_fill_rect(ctx, GRect(9,  1, 3, 4), 3, GCornerNone);
+
 }
 void handle_bluetooth(bool connected) {
     if (connected) {
@@ -242,21 +265,35 @@ void handle_battery(BatteryChargeState charge_state) {
   }
 
   // Reset if Battery > 20% ********************************
-  if (batterychargepct > 20) {
-     if (BatteryVibesDone == 1) {     //OK Reset to normal
+  if ((batterychargepct > 20) && (batterycharging == 0)) {
          BatteryVibesDone = 0;
-     }
-     #ifdef PBL_COLOR
+    
          text_layer_set_background_color(text_battery_layer, BGColorHold);
          text_layer_set_text_color(text_battery_layer, TextColorHold);
-     #endif
   }
 
   //
-  if (batterychargepct < 30) {
-     if (BatteryVibesDone == 0) {            // Do Once
-         BatteryVibesDone = 1;
-         vibes_long_pulse();
+  if ((batterychargepct < 30) && (batterycharging == 0)) {
+     #ifdef PBL_COLOR
+           text_layer_set_text_color(text_battery_layer, GColorRed);
+       #else
+           text_layer_set_text_color(text_battery_layer, GColorBlack);
+       #endif
+       
+       text_layer_set_background_color(text_battery_layer, GColorWhite);
+    
+       if ((BatteryVibesDone == 0) && (PersistLow_Batt == 1)) {            // Do Once
+            BatteryVibesDone = 1;
+            APP_LOG(APP_LOG_LEVEL_WARNING, "Battery Vibes Sent");
+            vibes_long_pulse();
+       
+            #ifdef PBL_COLOR
+              text_layer_set_text_color(text_battery_layer, GColorRed);
+            #else
+             text_layer_set_text_color(text_battery_layer, GColorBlack);
+            #endif
+       
+            text_layer_set_background_color(text_battery_layer, GColorWhite);
       }
   }
 
@@ -322,8 +359,10 @@ if (units_changed & DAY_UNIT) {
 void handle_deinit(void) {
   tick_timer_service_unsubscribe();
   
-  persist_write_string(DATE_STYLE, date_type);
-  persist_write_string(BT_VIBRATE, VibOnBTLoss);
+  persist_write_string(MESSAGE_KEY_DATE_FORMAT_KEY,       PersistDateFormat);
+  persist_write_int(MESSAGE_KEY_BT_VIBRATE_KEY,           PersistBTLoss);
+  persist_write_int(MESSAGE_KEY_LOW_BATTERY_KEY,          PersistLow_Batt);
+
 
   battery_state_service_unsubscribe();
   bluetooth_connection_service_unsubscribe();
@@ -350,52 +389,68 @@ void handle_deinit(void) {
   window_destroy(window);
 }
 
-//Receive Input from Config html page:
+//Receive Input from Config page:
+
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
-  //APP_LOG(APP_LOG_LEVEL_INFO, "In Inbox received callback");
-  
-  char BTVibeConfig[] = "0";
 
-  FirstTime = 0;
+  APP_LOG(APP_LOG_LEVEL_ERROR, "In Inbox received callback");
 
-  // Read first item
-  Tuple *t = dict_read_first(iterator);
+   FirstTime = 0;
 
-  while(t != NULL) {
+  //Date Format
+  Tuple *Date_Type = dict_find(iterator, MESSAGE_KEY_DATE_FORMAT_KEY);
 
-    // Which key was received?
-    switch(t->key) {
-    case 0:
-      strcpy(date_type, t->value->cstring);
-
-      if (strcmp(date_type, "us") == 0) {
-         strcpy(date_format, "%b %d");
-      } else {
-         strcpy(date_format, "%d %b");
-      }
-
-      text_layer_set_text(text_mmdd_layer, mmdd_text);
-      break;
-      
-      case 1:
-      strcpy(BTVibeConfig, t->value->cstring); 
-      if (strcmp(BTVibeConfig, "0") == 0) {
-         strcpy(VibOnBTLoss,"0");
-      } else {
-         strcpy(VibOnBTLoss,"1");
-      }
-      break;
-      
-    default:
-      APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
-      break;
-    }
-
-    // Look for next item
-    t = dict_read_next(iterator);
-    }
+  if(Date_Type) {
+      strcpy(PersistDateFormat, (Date_Type->value->cstring));
+      APP_LOG(APP_LOG_LEVEL_INFO,    "    Added Config Date Format: %s, 0 = US, 1 = Int'l",PersistDateFormat);
+  } else { //Check for Persist
+        if(persist_exists(MESSAGE_KEY_DATE_FORMAT_KEY)) {
+           persist_read_string(MESSAGE_KEY_DATE_FORMAT_KEY, PersistDateFormat, sizeof(PersistDateFormat));
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Persistant Date Format: %s0 = US, 1 = Int'l", PersistDateFormat);
+        }  else {   // Set Default
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Default Date Format: %s0 = US, 1 = Int'l", PersistDateFormat);
+         }
   }
 
+  if (strcmp(PersistDateFormat, "0") == 0) {     // US
+     strcpy(date_format, "%b %e %Y");
+  }  else  {
+     strcpy(date_format, "%e %b %Y");
+  }
+
+  //Vibrate on BT Loss
+  Tuple *BTVib = dict_find(iterator, MESSAGE_KEY_BT_VIBRATE_KEY);
+
+  if(BTVib) {
+    PersistBTLoss = BTVib->value->int32;
+      APP_LOG(APP_LOG_LEVEL_INFO,      "    Added Config Vib on BT Loss: %d, 0 = No Vib, 1 = Vib", PersistBTLoss);
+  } else { //Check for Persist
+        if(persist_exists(MESSAGE_KEY_BT_VIBRATE_KEY)) {
+           PersistBTLoss = persist_read_int(MESSAGE_KEY_BT_VIBRATE_KEY);
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Persistant Vib on BT Loss: %d, 0 = No Vib, 1 = Vib", PersistBTLoss);
+        }  else {   // Set Default
+           PersistBTLoss = 0;  // Default NO Vibrate
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Default Vib on BT Loss: %d, 0 = No Vib, 1 = Vib", PersistBTLoss);
+         }
+  }
+
+
+  //Vibrate on Low Batt
+  Tuple *LowBatt = dict_find(iterator, MESSAGE_KEY_LOW_BATTERY_KEY);
+
+  if(LowBatt) {
+    PersistLow_Batt = LowBatt->value->int32;
+    APP_LOG(APP_LOG_LEVEL_INFO,      "    Added Config Vib on Low Batt: %d, 0 = No Vib, 1 = Vib", PersistLow_Batt);
+  } else { //Check for Persist
+        if(persist_exists(MESSAGE_KEY_LOW_BATTERY_KEY)) {
+           PersistLow_Batt = persist_read_int(MESSAGE_KEY_LOW_BATTERY_KEY);
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Persistant Vib on Low Batt: %d, 0 = No Vib, 1 = Vib", PersistLow_Batt);
+        }  else {   // Set Default
+           PersistLow_Batt = 0;  // Default NO Vibrate
+           APP_LOG(APP_LOG_LEVEL_INFO, "    Added Default Vib on Low Batt: %d, 0 = No Vib, 1 = Vib", PersistLow_Batt);
+         }
+  }
+}
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Inbox Message dropped!");
 }
@@ -435,7 +490,7 @@ void handle_init(void) {
   app_message_register_outbox_sent(outbox_sent_callback);
 
   // Open AppMessage
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  app_message_open(64, 64);
 
   //Red Sox Logo
   image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_RED_SOX_LOGO);
@@ -491,25 +546,40 @@ void handle_init(void) {
   layer_add_child(window_layer, bitmap_layer_get_layer(image_layer));
   
  //Persistent Value Date Format:
-  if (persist_exists(DATE_STYLE)) {
-       persist_read_string(DATE_STYLE, date_type, sizeof(date_type));
+  if (persist_exists(MESSAGE_KEY_DATE_FORMAT_KEY)) {
+     persist_read_string(MESSAGE_KEY_DATE_FORMAT_KEY  , PersistDateFormat, sizeof(PersistDateFormat));
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set Date Format to Persistant: %s, 0 = US, 1 = Int'l", PersistDateFormat);
   }  else {
-       strcpy(date_type, "us");
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set Date Format to Default 0 = US");
+     strcpy(PersistDateFormat, "0"); //Default
   }
 
-  if (strcmp(date_type, "us") == 0) {
-      strcpy(date_format, "%b %d");
+  if (strcmp(PersistDateFormat, "0") == 0) {     // US
+     strcpy(date_format, "%b %e %Y");
   } else {
-      strcpy(date_format, "%d %b");
+     strcpy(date_format, "%e %b %Y");
   }
-  
-  //Persistent Value VibOnBTLoss
-  if(persist_exists(BT_VIBRATE)) {
-     persist_read_string(BT_VIBRATE, VibOnBTLoss, sizeof(VibOnBTLoss));  
+
+  //Persistent Value Vib On BTLoss
+  if(persist_exists(MESSAGE_KEY_BT_VIBRATE_KEY)) {
+     PersistBTLoss = persist_read_int(MESSAGE_KEY_BT_VIBRATE_KEY);
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set BT Vibrate To Persistant %d (0 = NO Vib, 1 = Vib", PersistBTLoss);
   }  else {
-     strcpy(VibOnBTLoss, "0"); // Default
-  } 
-  
+     PersistBTLoss = 0; // Default
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set BT Vibrate To 0 Default - No Vibrate");
+
+  }
+
+  //Persistent Value Vib on Low Batt
+  if(persist_exists(MESSAGE_KEY_LOW_BATTERY_KEY)) {
+     PersistLow_Batt = persist_read_int(MESSAGE_KEY_LOW_BATTERY_KEY);
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set Low Batt Vibrate To Persistant %d (0 = NO Vib, 1 = Vib", PersistLow_Batt);
+  }  else {
+     PersistLow_Batt = 0; // Default
+     APP_LOG(APP_LOG_LEVEL_INFO, "    Set Low Batt Vibrate To 0 Default - No Vibrate");
+
+  }
+ 
   // Time of Day is here
   #ifdef PBL_PLATFORM_CHALK   
       text_time_layer = text_layer_create(GRect(1, 120, 180, 53));
