@@ -82,7 +82,7 @@ module.exports = [
             },
             {
                 "type": "text",
-                "defaultValue": "Red Sox Logo By WA1OUI V7.1"
+                "defaultValue": "Red Sox Logo By WA1OUI V7.2"
             }
         ]
     }

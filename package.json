@@ -20,6 +20,13 @@
         "resources": {
             "media": [
                 {
+                    "file": "images/Red Sox Screen Color menu.png",
+                    "menuIcon": true,
+                    "name": "IMAGE_MENU_ICON",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
                     "file": "fonts/HelveNeuLig.ttf",
                     "name": "FONT_HELV_NEW_LIGHT_20",
                     "type": "font"
@@ -55,12 +62,6 @@
                     "file": "images/bos.png",
                     "name": "IMAGE_RED_SOX_LOGO",
                     "type": "bitmap"
-                },
-                {
-                    "file": "images/menu_icon_Red-Sox-BW.png",
-                    "menuIcon": true,
-                    "name": "IMAGE_MENU_ICON",
-                    "type": "bitmap"
                 }
             ]
         },
@@ -76,5 +77,5 @@
             "watchface": true
         }
     },
-    "version": "7.1.0"
+    "version": "7.2.0"
 }
